@@ -1,4 +1,4 @@
-%  [a,b,f,ec,n] = REFELLIP(ellipsoid)
+%  [a,b,f,ec,n] = REFELLIP(ellipse)
 %
 %  DESCRIPTION
 %  Database of parameters for the most broadly used Reference Ellipsoids. 
@@ -9,7 +9,7 @@
 %  F. The same ellipsoid can be used for different Datums.
 %
 %  INPUT VARIABLES
-%  - ellipsoid: character string specifying the Reference Ellipsoid. 25 types 
+%  - ellipse: character string specifying the Reference Ellipsoid. 25 types 
 %    can be chosen using the following character strings.
 %    
 %    ellipse     DESCRIPTION
@@ -69,14 +69,25 @@
 %
 %  See also VINCENTY, VINCENTYDIRECT
 
+%  VERSION 1.3
+%  Date: 08 Apr 2023
+%  Author: Guillermo Jimenez Arranz
+%  Updates:
+%  - Added warning when ELLIPSOID is not a valid string identifier
+%  - Made ELLIPSOID case-insensitive
+%  - Changed ELLIPSOID to ELLIPSE to avoid conflict with the function of
+%    the same name
+%
 %  VERSION 1.2
 %  Date: 12 Jun 2014
 %  Author: Guillermo Jimenez Arranz
+%  Updates:
 %  - Added third flattening parameter as output (n)
 %
 %  VERSION 1.1
 %  Date: 05 Jun 2014 
 %  Author: Guillermo Jimenez Arranz
+%  Updates:
 %  - Added new Ref. Ellipsoids and related Datums
 %
 %  VERSION 1.0
@@ -84,69 +95,77 @@
 %  email: gjarranz@gmail.com
 %  03 Jun 2014
 
-function [a,b,f,ec,n] = refEllip(ellipsoid)
+function [a,b,f,ec,n] = refEllip(ellipse)
 
-switch ellipsoid
-    case 'WGS84' % World Geodetic System 1984
+% Error control
+ellipseIds = lower({'WGS84','WGS72','WGS66','WGS60','GRS80','NAD83',...
+    'GDA94','AIR30','MdAIR','AusNS','AGD66','AGD84','INTER','IAU65','IAU68',...
+    'GRS67','MdGRS','SAD69','CLK80','CLK66','NAD27','KRASO', 'ATS77',...
+    'EVRST','BESSL'});
+if ~ischar(ellipse) || ~ismember(lower(ellipse),ellipseIds)
+    ellipse = 'wgs84';
+    warning(['ELLIPSOID is not a valid string identifier. '...
+            'ELLIPSOID = ''WGS84'' will be used'])
+end
+
+switch lower(ellipse)
+    case 'wgs84' % World Geodetic System 1984
         finv = 298.257223563; % inverse of ellipsoid flattening
         a = 6378137; % radius at equator [m]  
-    case 'WGS72' % World Geodetic System 1972
+    case 'wgs72' % World Geodetic System 1972
         finv = 298.26; % inverse of ellipsoid flattening
         a = 6378135; % radius at equator [m]
-    case 'WGS66' % World Geodetic System 1966
+    case 'wgs66' % World Geodetic System 1966
         finv = 298.25; % inverse of ellipsoid flattening
         a = 6378145; % radius at equator [m]
-    case 'WGS60' % World Geodetic System 1960
+    case 'wgs60' % World Geodetic System 1960
         finv = 298.3; % inverse of ellipsoid flattening
         a = 6378165; % radius at equator [m]
-    case {'GRS80','NAD83','GDA94'} % Geodetic Reference System 1980
+    case {'grs80','nad83','gda94'} % Geodetic Reference System 1980
         finv = 298.257222101; % inverse of ellipsoid flattening
         a = 6378137; % radius at equator [m]
-    case 'AIR30' % Airy 1830
+    case 'air30' % Airy 1830
         finv = 299.3249646; % inverse of ellipsoid flattening
         a = 6377563.396; % radius at equator [m]
-    case 'MdAIR' % Modified Airy 1849
+    case 'mdair' % Modified Airy 1849
         finv = 299.3249646; % inverse of ellipsoid flattening
         a = 6377340.189; % radius at equator [m]
-    case {'AusNS','AGD66','AGD84'} % Autralian National Spheroid
+    case {'ausns','agd66','agd84'} % Autralian National Spheroid
         finv = 298.25; % inverse of ellipsoid flattening
         a = 6378160; % radius at equator [m]
-    case 'INTER' % International 1924
+    case 'inter' % International 1924
         finv = 297; % inverse of ellipsoid flattening
         a = 6378388; % radius at equator [m]
-    case 'IAU65' % International Astronomical Union 1965
+    case 'iau65' % International Astronomical Union 1965
         finv = 298.25; % inverse of ellipsoid flattening
         a = 6378160; % radius at equator [m]
-    case 'IAU68' % International Astronomical Union 1968
+    case 'iau68' % International Astronomical Union 1968
         finv = 298.2472; % inverse of ellipsoid flattening
         a = 6378160; % radius at equator [m]
-    case 'GRS67' % Geodetic Reference System 1967
+    case 'grs67' % Geodetic Reference System 1967
         finv = 298.247167; % inverse of ellipsoid flattening
         a = 6378160; % radius at equator [m]
-    case {'MdGRS','SAD69'} %  Modified GRS 1967
+    case {'mdgrs','sad69'} %  Modified GRS 1967
         finv = 298.25; % inverse of ellipsoid flattening
         a = 6378160; % radius at equator [m]
-    case 'CLK80' % Clarke 1880
+    case 'clk80' % Clarke 1880
         finv = 293.465; % inverse of ellipsoid flattening
         a = 6378249.145; % radius at equator [m]
-    case {'CLK66','NAD27'} % Clarke 1866
+    case {'clk66','nad27'} % Clarke 1866
         finv = 294.9786982139; % inverse of ellipsoid flattening
         a = 6378206.4; % radius at equator [m]
-    case 'KRASO' % Krasovsky 1940
+    case 'kraso' % Krasovsky 1940
         finv = 298.3; % inverse of ellipsoid flattening
         a = 6378245; % radius at equator [m]
-    case 'ATS77' % Average Terrestrial System 1977
+    case 'ats77' % Average Terrestrial System 1977
         finv = 298.257; % inverse of ellipsoid flattening
         a = 6378135; % radius at equator [m] 
-    case 'EVRST' % Everest 1830
+    case 'evrst' % Everest 1830
         finv = 300.8017; % inverse of ellipsoid flattening
         a = 6377276.345; % radius at equator [m] 
-    case 'BESSL' % Bessel 1841
+    case 'bessl' % Bessel 1841
         finv = 299.1528128; % inverse of ellipsoid flattening
         a = 6377397.155; % radius at equator [m]        
-    otherwise % World Geodetic System 1984 (DEFAULT MODEL)
-        finv = 298.257223563; % inverse of ellipsoid flattening
-        a = 6378137; % radius at equator [m]
 end
 
 f = 1/finv; % flattening of the ellipsoid

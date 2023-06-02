@@ -1,5 +1,5 @@
 %  [latitude2,longitude2,bearing2] = VINCENTYDIRECT(latitude1,longitude1,...
-%     bearing1,distance,varargin)
+%     bearing1,distance1,varargin)
 %
 %  DESCRIPTION
 %  Estimates the latitude, longitude and final bearing of end point P2
@@ -12,15 +12,18 @@
 %  calculated considering travel path from P1 to P2 (P1->P2).
 %
 %  INPUT VARIABLES
-%  - latitude1: Latitude of Point 1 [deg] 
-%  - longitude1: Longitude of Point 1 [deg]
-%  - distance: Distance between Point 1 and Point 2 [m]
-%  - bearing1: initial bearing (direction P1->P2)
-%  - ellipse (varargin{1}): character string to choose the Reference Ellipsoid. 
+%  - latitude1: latitude of start points P1 [deg] 
+%  - longitude1: longitude of start points P1 [deg]
+%  - bearing1: initial bearings (direction P1->P2)
+%  - distance1: distances between start and end points (P1->P2) [m]
+%
+%  INPUT PROPERTIES
+%  - warning: 0, 1 or logical. Use FALSE or 0 for omitting warnings.
+%  - ellipsoid: character string representing the Reference Ellipsoid. 
 %    This parameter admits up to 25 different input strings between 
 %    reference ellipsoids or datums.
 %    
-%    ellipse     DESCRIPTION
+%    ellipsoid   DESCRIPTION
 %    --------------------------------------------------------------------
 %    'WGS84'     World Geodetic System 1984. Accurate general use (DEFAULT)
 %    'WGS72'     World Geodetic System 1972. NASA, Dep. of Defense, marine
@@ -53,27 +56,20 @@
 %    'EVRST'     Everest 1830. India, Burma, Pakistan, Afghanistan, Tailand
 %    'BESSL'     Bessel 1841. Central Europe, Chile, Indonesia
 %
-%  - warn (varargin{1}): TRUE for displaying a warning when the intput 
-%    arguments include coincident start and end points.
-%
 %  OUTPUT VARIABLES
-%  - latitude2: vector of latitudes of ending points (P2) [deg] 
-%  - longitude2: vector of longitudes of ending points (P2) [deg]
-%  - bearing2: vector of final bearings between start and end points (P1->P2).
+%  - latitude2: latitudes of end points (P2) [deg] 
+%  - longitude2: longitudes of end points (P2) [deg]
+%  - bearing2: final bearings between start and end points (P1->P2).
 %    BEARING2 = BEARING1 if DISTANCE = 0.
 %
 %  INTERNALLY CALLED FUNCTIONS
 %  - refEllip
 %
 %  FUNCTION CALLS
-%  1) [latitude2,longitude2,bearing2] = vincentyDirect(latitude1,...
-%       longitude1,bearing1,distance)
-%     ¬ ellipse = 'WGS84', warn = 'on'
-%  2) [latitude2,longitude2,bearing2] = vincentyDirect(latitude1,...
-%       longitude1,bearing1,distance,ellipse)
-%     ¬ warn = 'on'
-%  3) [latitude2,longitude2,bearing2] = vincentyDirect(latitude1,...
-%       longitude1,bearing1,distance,ellipse,warn)
+%  1. [latitude2,longitude2,bearing2] = vincentyDirect(latitude1,...
+%       longitude1,bearing1,distance1)
+%     * 'ellipsoid' = 'wgs84', 'warning' = TRUE
+%  2. [latitude2,longitude2,bearing2] = vincentyDirect(...,<PROPERTY>,<VALUE>)
 %
 %  CONSIDERATIONS & LIMITATIONS
 %  - Vincenty formula is slower than Haversine but accurate at every 
@@ -83,7 +79,20 @@
 %  - http://www.movable-type.co.uk/scripts/latlong-vincenty.html
 %  - Directorate of Overseas Surveys, "Survey Review", April 1975
 %  - http://en.wikipedia.org/wiki/Vincenty's_formulae
+%
+%  See also vincenty, refEllip
 
+%  VERSION 3.0
+%  Date: 08 Apr 2023
+%  Author: Guillermo Jimenez Arranz
+%  Updates:
+%  - Replaced variable input arguments WARN and ELLIPSOID with property/
+%    value pairs 'warning' and 'ellipsoid'.
+%  - Changed ELLIPSOID to ELLIPSE to avoid conflict with the function of
+%    the same name.
+%  - Changed DISTANCE to DISTANCE1 to avoid conflict with the function of
+%    the same name.
+%
 %  VERSION 2.1
 %  Date: 07 Jun 2015
 %  Author: Guillermo Jimenez Arranz
@@ -103,86 +112,138 @@
 %  3 Jun 2014
 
 function [latitude2,longitude2,bearing2] = vincentyDirect(latitude1,...
-    longitude1,bearing1,distance,varargin)
+    longitude1,bearing1,distance1,varargin)
 
-% Variable Input Arguments
-narginchk(4,6)
-switch nargin
-    case 4
-        ellipse = 'WGS84';    
-        warn = 'on';
-    case 5
-        ellipse = varargin{1};
-        warn = 'on';   
-    case 6
-        ellipse = varargin{1};
-        warn = varargin{2};
-end
-
-% Error Management (General)
-if ~any(warn == [0 1])
-    error('Variable input argument WARN must be [0 1] or logical')
-end
-
-% Manage Identical Points (P1=P2)
-samePoint = (distance==0);
-if any(samePoint) && warn
-     warning(sprintf('One or more points share the same position\n'));  %#ok<SPWRN>
-end
-
-% General
-latitude1 = latitude1*pi/180; % latitude Point 1 [rad]
-longitude1 = longitude1*pi/180; % longitude Point 1 [rad]
-bearing1 = bearing1*pi/180; % bearing Point 1 [rad]
-[a,b,f] = refEllip(ellipse); % parameters for Reference Ellipsoid
-
-% P2 Position and Final Bearing Calculation (latitude2,longitude2,bearing2)
-tanU1 = (1-f)*tan(latitude1); 
-cosU1 = cos(atan2(tanU1,1)); 
-sigma1 = atan2(tanU1,cos(bearing1)); 
-sinBeta = cosU1.*sin(bearing1);
-cosSqBeta = (1-sinBeta).*(1+sinBeta); 
-uSq = cosSqBeta*(a^2-b^2)/b^2; 
-A = 1 + uSq.*(4096 + uSq.*(-768 + uSq.*(320 - 175*uSq)))/16384; 
-B = uSq.*(256 + uSq.*(-128 + uSq.*(74 - 47*uSq)))/1024; 
-sigma = distance./(b*A); % longitude in the auxiliary sphere
-
-maxIte = 100; % maximum iteration
-tol = 10^-12; % lambda tolerance (10^-12 implies 1 mm precision)
-flag = 1; %loop access flag
-
-while flag 
-    o2SigmaM = 2*sigma1 + sigma; 
-    sinSigma = sin(sigma); 
-    cosSigma = cos(sigma); 
-    cos2SigmaM = cos(o2SigmaM); 
-    cosSq2SigmaM = cos2SigmaM.^2; 
+    % Variable Input Arguments
+    narginchk(4,8)
+    nVarargin = nargin - 4;
+    if rem(nVarargin,2)
+        error('Property and value input arguments must come in pairs')
+    end
     
-    deltaSigma = B.*sinSigma.*(cos2SigmaM + 1/4*B.*(cosSigma.*(-1 ...
-        + 2*cosSq2SigmaM) - 1/6*B.*cos2SigmaM.*(-3 + 4*sinSigma.^2).*(-3 ...
-        + 4*cosSq2SigmaM)));
-    sigmaP = sigma;
-    sigma = distance./(b*A) + deltaSigma;
-     
-    err = abs(sigma-sigmaP); % approximation error
-    maxIte = maxIte-1; % remaining iterations
-    flag = (maxIte>0) && any(err>=tol); % loop access flag   
+    % Input Control
+    [ellipse,warnFlag] = vincentyDirect_InputControl(latitude1,...
+        longitude1,bearing1,distance1,varargin);
+
+    % Manage Identical Points (P1=P2)
+    samePoint = (distance1 == 0);
+    if any(samePoint) && warnFlag
+         warning(sprintf('One or more points share the same position\n'));  %#ok<SPWRN>
+    end
+
+    % General
+    latitude1 = latitude1*pi/180; % latitude Point 1 [rad]
+    longitude1 = longitude1*pi/180; % longitude Point 1 [rad]
+    bearing1 = bearing1*pi/180; % bearing Point 1 [rad]
+    [a,b,f] = refEllip(ellipse); % parameters for Reference Ellipsoid
+
+    % P2 Position and Final Bearing Calculation (latitude2,longitude2,bearing2)
+    tanU1 = (1-f)*tan(latitude1); 
+    cosU1 = cos(atan2(tanU1,1)); 
+    sigma1 = atan2(tanU1,cos(bearing1)); 
+    sinBeta = cosU1.*sin(bearing1);
+    cosSqBeta = (1-sinBeta).*(1+sinBeta); 
+    uSq = cosSqBeta*(a^2-b^2)/b^2; 
+    A = 1 + uSq.*(4096 + uSq.*(-768 + uSq.*(320 - 175*uSq)))/16384; 
+    B = uSq.*(256 + uSq.*(-128 + uSq.*(74 - 47*uSq)))/1024; 
+    sigma = distance1./(b*A); % longitude in the auxiliary sphere
+
+    maxIte = 100; % maximum iteration
+    tol = 10^-12; % lambda tolerance (10^-12 implies 1 mm precision)
+    flag = 1; %loop access flag
+
+    while flag 
+        o2SigmaM = 2*sigma1 + sigma; 
+        sinSigma = sin(sigma); 
+        cosSigma = cos(sigma); 
+        cos2SigmaM = cos(o2SigmaM); 
+        cosSq2SigmaM = cos2SigmaM.^2; 
+
+        deltaSigma = B.*sinSigma.*(cos2SigmaM + 1/4*B.*(cosSigma.*(-1 ...
+            + 2*cosSq2SigmaM) - 1/6*B.*cos2SigmaM.*(-3 + 4*sinSigma.^2).*(-3 ...
+            + 4*cosSq2SigmaM)));
+        sigmaP = sigma;
+        sigma = distance1./(b*A) + deltaSigma;
+
+        err = abs(sigma-sigmaP); % approximation error
+        maxIte = maxIte-1; % remaining iterations
+        flag = (maxIte>0) && any(err>=tol); % loop access flag   
+    end
+
+    sinU1 = sin(atan2(tanU1,1));
+    cosSigma = cos(sigma);
+    sinSigma = sin(sigma);
+    cosBeta1 = cos(bearing1);
+    sinBeta1 = sin(bearing1);
+
+    lambda = atan2(sinSigma.*sinBeta1,cosU1.*cosSigma - sinU1.*sinSigma.*cosBeta1);
+    C = f/16*cosSqBeta.*(4+f*(4-3*cosSqBeta));
+    L = lambda - (1-C)*f.*sinBeta.*(sigma + C.*sinSigma.*(cos2SigmaM ...
+        + C.*cosSigma.*(-1 + 2*cosSq2SigmaM)));
+
+    longitude2 = (L+longitude1)*180/pi; % longitude of point 2 [º]
+    latitude2 = atan2(sinU1.*cosSigma ...
+        + cosU1.*sinSigma.*cosBeta1,(1-f)*sqrt(sinBeta.^2 ...
+        + (sinU1.*sinSigma -  cosU1.*cosSigma.*cosBeta1).^2))*180/pi; % latitude of point 2 [º]
+    bearing2 = atan2(sinBeta,-sinU1.*sinSigma + cosU1.*cosSigma.*cosBeta1)*180/pi; % final bearing (P1-P2) [º]
 end
 
-sinU1 = sin(atan2(tanU1,1));
-cosSigma = cos(sigma);
-sinSigma = sin(sigma);
-cosBeta1 = cos(bearing1);
-sinBeta1 = sin(bearing1);
+function [ellipse,warnFlag] = vincentyDirect_InputControl(latitude1,...
+    longitude1,bearing1,distance1,varargin)
+ 
+    % Initialise Default Parameters
+    ellipse = 'wgs84';
+    warnFlag = true;
 
-lambda = atan2(sinSigma.*sinBeta1,cosU1.*cosSigma - sinU1.*sinSigma.*cosBeta1);
-C = f/16*cosSqBeta.*(4+f*(4-3*cosSqBeta));
-L = lambda - (1-C)*f.*sinBeta.*(sigma + C.*sinSigma.*(cos2SigmaM ...
-    + C.*cosSigma.*(-1 + 2*cosSq2SigmaM)));
-
-longitude2 = (L+longitude1)*180/pi; % longitude of point 2 [º]
-latitude2 = atan2(sinU1.*cosSigma ...
-    + cosU1.*sinSigma.*cosBeta1,(1-f)*sqrt(sinBeta.^2 ...
-    + (sinU1.*sinSigma -  cosU1.*cosSigma.*cosBeta1).^2))*180/pi; % latitude of point 2 [º]
-bearing2 = atan2(sinBeta,-sinU1.*sinSigma + cosU1.*cosSigma.*cosBeta1)*180/pi; % final bearing (P1-P2) [º]
+    % Retrieve Input Variables
+    varargin = varargin{1};
+    nVarargin = length(varargin);
+    for m = 1:2:nVarargin
+        inputProperty = lower(varargin{m}); % case insensitive
+        inputProperties = lower({'Ellipsoid','Warning'});
+        if ~ismember(inputProperty,inputProperties)
+            error('Invalid input property')
+        else
+            switch inputProperty
+                case 'ellipsoid'
+                    ellipse = varargin{m+1};
+                case 'warning'
+                    warnFlag = varargin{m+1};
+            end
+        end
+    end
+    
+    % Error Control (general)
+    if ~isnumeric(latitude1) || ~isvector(latitude1) ...
+            || any(latitude1 < -90) || any(latitude1 > 90)
+        error('LATITUDE1 must be a vector of numbers between -90 and 90.')
+    end
+    if ~isnumeric(longitude1) || ~isvector(longitude1) ...
+            || any(longitude1 < -180) || any(longitude1 > 360)
+        error('LONGITUDE1 must be a vector of numbers between -180 and 360.')
+    end
+    if ~isnumeric(bearing1) || ~isvector(bearing1) ...
+            || any(bearing1 < -180) || any(bearing1 > 360)
+        error('BEARING1 must be a vector of numbers between -180 and 360.')
+    end
+    if ~isnumeric(distance1) || ~isvector(distance1) || any(distance1 < 0)
+        error('DISTANCE must be a vector of positive numbers.')
+    end
+    
+    % Error Control (variable input arguments)
+    ellipseIds = lower({'WGS84','WGS72','WGS66','WGS60','GRS80','NAD83',...
+    'GDA94','AIR30','MdAIR','AusNS','AGD66','AGD84','INTER','IAU65','IAU68',...
+    'GRS67','MdGRS','SAD69','CLK80','CLK66','NAD27','KRASO', 'ATS77',...
+    'EVRST','BESSL'});
+    if ~ischar(ellipse) || ~ismember(lower(ellipse),ellipseIds)
+        ellipse = 'wgs84';
+        warning(['ELLIPSOID is not a valid string identifier. '...
+                'ELLIPSOID = ''WGS84'' will be used'])
+    end
+    if ~any(warnFlag == [0 1])
+        warnFlag = true;
+        warning(['WARNING must be [0 1] or logical. '...
+            'Warnings will be displayed (WARNING = TRUE).'])
+    end
+end
 
